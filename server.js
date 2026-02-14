@@ -25,22 +25,29 @@ const transporter = nodemailer.createTransport({
 
 // 2. The Verification Route
 app.post('/verify-me', async (req, res) => {
-    const { email, code } = req.body;
+    // We get the email, username, and the code from the frontend
+    const { email, username, code } = req.body; 
+
+    // Check if data is missing before trying to send
+    if (!email || !code) {
+        return res.status(400).send({ error: "Missing email or code" });
+    }
 
     const mailOptions = {
         from: `"Tables For All" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: 'Your 6-Digit Safety Code',
-        text: `Welcome! Your verification code is: ${code}`,
-        html: `<b>Welcome to Tables For All!</b><br>Your safety code is: <h2>${code}</h2>`
+        text: `Welcome ${username}! Your verification code is: ${code}`,
+        html: `<b>Welcome to Tables For All, ${username}!</b><br>Your safety code is: <h2>${code}</h2>`
     };
 
     try {
         await transporter.sendMail(mailOptions);
+        console.log("✅ Email sent to:", email);
         res.status(200).send({ message: "Email Sent!" });
     } catch (error) {
-        console.error("Failed to send:", error);
-        res.status(500).send({ error: "Email failed" });
+        console.error("❌ Failed to send:", error);
+        res.status(500).send({ error: "Email failed", details: error.message });
     }
 });
 

@@ -9,17 +9,18 @@ app.use(express.json());
 
 // 1. Create the Transporter (Your Email "Engine")
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
+    // Direct Google SMTP IPv4 address to bypass network routing issues
+    host: '64.233.184.108', 
     port: 587,
-    secure: false, // Must be false for port 587
+    secure: false, 
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
-    // Adding extra time for the handshake
-    connectionTimeout: 15000, 
+    connectionTimeout: 20000, // Increased to 20s to allow for Render "cold starts"
     tls: {
-        // This is still required to bypass certificate issues on cloud hosts
+        // Essential: Tells Gmail the certificate is for smtp.gmail.com even though we use an IP
+        servername: 'smtp.gmail.com',
         rejectUnauthorized: false,
         minVersion: 'TLSv1.2'
     }
@@ -58,5 +59,6 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
 
 

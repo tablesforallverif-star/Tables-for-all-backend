@@ -10,18 +10,18 @@ app.use(express.json());
 // 1. Create the Transporter (Your Email "Engine")
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // true for 465, false for other ports
+    port: 587,
+    secure: false, // Must be false for port 587
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
-    // Adding a connection timeout limit so it doesn't hang forever
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
+    // Adding extra time for the handshake
+    connectionTimeout: 15000, 
     tls: {
-        rejectUnauthorized: false
+        // This is still required to bypass certificate issues on cloud hosts
+        rejectUnauthorized: false,
+        minVersion: 'TLSv1.2'
     }
 });
 
@@ -58,4 +58,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
 

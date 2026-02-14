@@ -2,70 +2,66 @@ require('dotenv').config();
 const express = require('express');
 const nodemailer = require('nodemailer');
 const cors = require('cors');
+const dns = require('dns'); // Required to force IPv4
+
 const app = express();
 
-// Middleware
-app.use(cors());
+// 1. Better CORS Configuration
+app.use(cors()); 
 app.use(express.json());
 
-// 1. Create the Transporter
-// Using the hostname is safer than a static IP for long-term reliability
+// 2. Transporter with IPv4 Force
 const transporter = nodemailer.createTransport({
-    service: 'gmail', // Shorthand for host: 'smtp.gmail.com', port: 465, secure: true
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS // Must be a 16-character App Password
+        pass: process.env.EMAIL_PASS
     },
-    connectionTimeout: 20000, 
-    greetingTimeout: 10000,
-});
-
-// Verify connection configuration on startup
-transporter.verify((error, success) => {
-    if (error) {
-        console.error("❌ Transporter Config Error:", error);
-    } else {
-        console.log("🚀 Email Server is ready to send messages");
+    connectionTimeout: 20000,
+    // This is the "Magic" that fixes Render network blocks
+    dnsLookup: (hostname, options, callback) => {
+        dns.lookup(hostname, { family: 4 }, callback);
     }
 });
 
-// 2. The Verification Route
+transporter.verify((error) => {
+    if (error) console.error("❌ Transporter Error:", error);
+    else console.log("🚀 Server is ready to send emails via IPv4");
+});
+
 app.post('/verify-me', async (req, res) => {
+    // Debug: Log exactly what the server sees
+    console.log("Incoming request body:", req.body);
+
     const { email, username, code } = req.body; 
 
     if (!email || !code) {
-        return res.status(400).json({ error: "Missing email or code" });
+        return res.status(400).json({ 
+            error: "Missing data", 
+            received: { email: !!email, username: !!username, code: !!code } 
+        });
     }
 
     const mailOptions = {
         from: `"Tables For All" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: 'Your 6-Digit Safety Code',
-        text: `Welcome ${username || 'User'}! Your verification code is: ${code}`,
-        html: `
-            <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
-                <h2>Welcome to Tables For All, ${username || 'User'}!</h2>
-                <p>Your safety code is:</p>
-                <h1 style="color: #4A90E2; letter-spacing: 2px;">${code}</h1>
-                <p>If you didn't request this, please ignore this email.</p>
-            </div>
-        `
+        html: `<div style="font-family: sans-serif;">
+                <h2>Welcome, ${username}!</h2>
+                <p>Your safety code is: <b>${code}</b></p>
+               </div>`
     };
 
     try {
         await transporter.sendMail(mailOptions);
-        console.log("✅ Email sent to:", email);
         res.status(200).json({ message: "Email Sent!" });
     } catch (error) {
-        console.error("❌ Nodemailer Error:", error);
-        res.status(500).json({ 
-            error: "Email failed", 
-            details: process.env.NODE_ENV === 'development' ? error.message : "Internal Server Error" 
-        });
+        console.error("❌ Send Error:", error);
+        res.status(500).json({ error: "Email failed", details: error.message });
     }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, '0.0.0.0', () => console.log(`Backend live on port ${PORT}`));

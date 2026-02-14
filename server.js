@@ -9,10 +9,17 @@ app.use(express.json());
 
 // 1. Create the Transporter (Your Email "Engine")
 const transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com', // Explicitly set the host
+    port: 465,               // Standard port for secure mail
+    secure: true,           // Use SSL
     service: 'gmail', 
     auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS // Your 16-character App Password
+        pass: process.env.EMAIL_PASS
+    },
+    tls: {
+        // This is the "magic" line that fixes the ENETUNREACH error
+        rejectUnauthorized: false 
     }
 });
 
@@ -37,4 +44,8 @@ app.post('/verify-me', async (req, res) => {
     }
 });
 
-app.listen(3000, () => console.log('✅ Mailer ready on port 3000'));
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is running on port ${PORT}`);
+});

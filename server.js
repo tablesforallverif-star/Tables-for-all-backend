@@ -1,39 +1,10 @@
 require('dotenv').config();
 const express = require('express');
-const nodemailer = require('nodemailer');
 const cors = require('cors');
-const dns = require('dns');
-
 const app = express();
+
 app.use(cors());
 app.use(express.json());
-
-// 1. Hardened Transporter
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465, // Port 465 is usually more stable on Render
-    secure: true, 
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    // Force IPv4 and extend timings for cloud firewalls
-    connectionTimeout: 30000, // 30 seconds
-    greetingTimeout: 30000,
-    socketTimeout: 45000,     // Allow 45s for the data to actually move
-    dnsLookup: (hostname, options, callback) => {
-        dns.lookup(hostname, { family: 4 }, callback);
-    }
-});
-
-// Immediate check
-transporter.verify((error) => {
-    if (error) {
-        console.error("❌ Transporter Error (Still blocked):", error.message);
-    } else {
-        console.log("🚀 SUCCESS: Connection established to Gmail!");
-    }
-});
 
 app.post('/verify-me', async (req, res) => {
     const { email, username, code } = req.body;
@@ -42,22 +13,43 @@ app.post('/verify-me', async (req, res) => {
         return res.status(400).json({ error: "Missing data" });
     }
 
-    const mailOptions = {
-        from: `"Tables For All" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: 'Your 6-Digit Safety Code',
-        html: `<h2>Welcome, ${username}!</h2><p>Your code is: <b>${code}</b></p>`
-    };
-
     try {
-        await transporter.sendMail(mailOptions);
-        console.log("✅ Email sent to:", email);
-        res.status(200).json({ message: "Email Sent!" });
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json',
+                'api-key': process.env.BREVO_API_KEY, // Your new key
+                'content-type': 'application/json'
+            },
+            body: JSON.stringify({
+                sender: { 
+                    name: "Tables For All", 
+                    email: "advaith.sivaram@gmail.com" // Use your verified email
+                },
+                to: [{ email: email }],
+                subject: "Your 6-Digit Safety Code",
+                htmlContent: `
+                    <div style="font-family: sans-serif; text-align: center; border: 1px solid #eee; padding: 20px;">
+                        <h1>Welcome to Tables For All, ${username}!</h1>
+                        <p>Your verification code is:</p>
+                        <h2 style="color: #ff4d4d; font-size: 32px; letter-spacing: 5px;">${code}</h2>
+                    </div>`
+            })
+        });
+
+        if (response.ok) {
+            console.log("✅ Success! Email sent via Brevo API.");
+            res.status(200).json({ message: "Email Sent!" });
+        } else {
+            const errorData = await response.json();
+            console.error("❌ Brevo Error:", errorData);
+            throw new Error(errorData.message || "Email API failed");
+        }
     } catch (error) {
-        console.error("❌ Send Error:", error.message);
-        res.status(500).json({ error: "Email failed", details: error.message });
+        console.error("❌ Connection Error:", error.message);
+        res.status(500).json({ error: "Failed to send email", details: error.message });
     }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 API Backend running on port ${PORT}`));

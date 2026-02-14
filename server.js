@@ -24,7 +24,7 @@ app.post('/verify-me', async (req, res) => {
             body: JSON.stringify({
                 sender: { 
                     name: "Tables For All", 
-                    email: "advaith.sivaram@gmail.com" // Use your verified email
+                    email: "tablesforallverif@gmail.com" // Use your verified email
                 },
                 to: [{ email: email }],
                 subject: "Your 6-Digit Safety Code",
@@ -53,3 +53,4 @@ app.post('/verify-me', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => console.log(`🚀 API Backend running on port ${PORT}`));
+
